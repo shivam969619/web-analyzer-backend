@@ -1,23 +1,22 @@
 import express from "express";
 import puppeteer from "puppeteer";
 import cors from "cors";
+import dotenv from "dotenv";
+
+// Load environment variables from .env file
+dotenv.config();
 
 const app = express();
 app.use(express.json());
-// app.use(
-//   // cors({
-//   //   origin: "https://web-analyzer.vercel.app",
-//   //   methods: "GET,POST",
-//   //   credentials: true,
-//   // })
-// );
+
 app.use(
   cors({
-    origin: "*",
+    origin: "*", // Allow all origins for testing purposes. Change this to specific origins in production.
     methods: "GET,POST",
     credentials: true,
   })
 );
+
 app.post("/api/audit", async (req, res) => {
   const { url } = req.body;
   if (!url) {
@@ -25,10 +24,13 @@ app.post("/api/audit", async (req, res) => {
   }
 
   try {
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      executablePath: puppeteer.executablePath() // Automatically find the path to the downloaded Chromium
+    });
     const page = await browser.newPage();
     console.log("Navigating to:", url);
-    await page.goto(url);
+    await page.goto(url, { waitUntil: 'networkidle2' });
     console.log("Navigation complete.");
 
     // Inject axe-core script into the page
