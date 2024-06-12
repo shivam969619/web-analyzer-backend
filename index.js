@@ -11,37 +11,37 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: "*", // Allow all origins for testing purposes. Change this to specific origins in production.
+    origin: "*",
     methods: "GET,POST",
     credentials: true,
   })
 );
 
 app.post("/api/audit", async (req, res) => {
+  console.log("Received request:", req.body);
   const { url } = req.body;
   if (!url) {
+    console.log("URL is missing");
     return res.status(400).json({ error: "URL is required" });
   }
 
   try {
+    console.log("Launching Puppeteer...");
     const browser = await puppeteer.launch({
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      executablePath: puppeteer.executablePath() // Automatically find the path to the downloaded Chromium
+      executablePath: puppeteer.executablePath() // Use Puppeteer's bundled Chromium
     });
     const page = await browser.newPage();
     console.log("Navigating to:", url);
     await page.goto(url, { waitUntil: 'networkidle2' });
     console.log("Navigation complete.");
 
-    // Inject axe-core script into the page
     await page.addScriptTag({
       url: "https://cdn.jsdelivr.net/npm/axe-core@4.3.1/axe.min.js",
     });
 
-    // Wait for axe-core to be available in the page context
     await page.waitForFunction(() => typeof window.axe !== "undefined");
 
-    // Evaluate axe.run() in the page context
     const results = await page.evaluate(async () => {
       try {
         return await window.axe.run();
@@ -49,13 +49,13 @@ app.post("/api/audit", async (req, res) => {
         return { error: error.message };
       }
     });
-    console.log(results);
+    console.log("Audit results:", results);
     const analyzedResults = analyzeResults(results);
     await browser.close();
-    console.log(analyzedResults);
+    console.log("Analysis complete:", analyzedResults);
     res.json(analyzedResults);
   } catch (error) {
-    console.error(error);
+    console.error("Error during audit:", error);
     res.status(500).send("Error performing accessibility audit");
   }
 });
